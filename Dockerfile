@@ -1,19 +1,28 @@
 # syntax=docker/dockerfile:1.7
 # Multi-stage, multi-arch capable build. BuildKit/buildx fills TARGETARCH at build time.
 ARG DOTNET_VERSION=8.0
-ARG TARGETARCH
 
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:${DOTNET_VERSION} AS build
 ARG TARGETARCH
 WORKDIR /src
 
 COPY RouterOSMCPSharp.csproj ./
-RUN dotnet restore RouterOSMCPSharp.csproj -a $TARGETARCH
+RUN case "$TARGETARCH" in \
+        amd64) DOTNET_ARCH=x64 ;; \
+        arm64) DOTNET_ARCH=arm64 ;; \
+        *) echo "Unsupported TARGETARCH: $TARGETARCH" >&2; exit 1 ;; \
+    esac && \
+    dotnet restore RouterOSMCPSharp.csproj -a "$DOTNET_ARCH"
 
 COPY . .
-RUN dotnet publish RouterOSMCPSharp.csproj \
+RUN case "$TARGETARCH" in \
+        amd64) DOTNET_ARCH=x64 ;; \
+        arm64) DOTNET_ARCH=arm64 ;; \
+        *) echo "Unsupported TARGETARCH: $TARGETARCH" >&2; exit 1 ;; \
+    esac && \
+    dotnet publish RouterOSMCPSharp.csproj \
         -c Release \
-        -a $TARGETARCH \
+        -a "$DOTNET_ARCH" \
         --no-restore \
         -o /app/publish \
         /p:UseAppHost=false
