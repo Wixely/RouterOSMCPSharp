@@ -1,0 +1,191 @@
+name: Build Release Packages
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  publish:
+    name: Publish ${{ matrix.base_name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            base_name: RouterOSMCPSharp-win-x64
+            artifact_name: RouterOSMCPSharp-win-x64
+            self_contained: false
+          - rid: linux-x64
+            base_name: RouterOSMCPSharp-linux-x64
+            artifact_name: RouterOSMCPSharp-linux-x64
+            self_contained: false
+          - rid: linux-arm64
+            base_name: RouterOSMCPSharp-linux-arm64
+            artifact_name: RouterOSMCPSharp-linux-arm64
+            self_contained: false
+          - rid: win-x64
+            base_name: RouterOSMCPSharp-win-x64-standalone
+            artifact_name: RouterOSMCPSharp-win-x64-standalone
+            self_contained: true
+          - rid: linux-x64
+            base_name: RouterOSMCPSharp-linux-x64-standalone
+            artifact_name: RouterOSMCPSharp-linux-x64-standalone
+            self_contained: true
+          - rid: linux-arm64
+            base_name: RouterOSMCPSharp-linux-arm64-standalone
+            artifact_name: RouterOSMCPSharp-linux-arm64-standalone
+            self_contained: true
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Compute package version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            echo "PACKAGE_VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          else
+            echo "PACKAGE_VERSION=dev-${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore RouterOSMCPSharp.sln
+
+      - name: Build
+        run: dotnet build RouterOSMCPSharp.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test RouterOSMCPSharp.sln -c Release --no-build --verbosity normal
+
+      - name: Publish ${{ matrix.rid }}
+        run: >
+          dotnet publish RouterOSMCPSharp.csproj
+          -c Release
+          -r ${{ matrix.rid }}
+          --self-contained ${{ matrix.self_contained }}
+          -o publish/${{ matrix.rid }}-${{ matrix.self_contained }}
+
+      - name: Package ${{ matrix.rid }}
+        shell: bash
+        run: |
+          cd publish/${{ matrix.rid }}-${{ matrix.self_contained }}
+          zip -r "../../${{ matrix.base_name }}-${PACKAGE_VERSION}.zip" .
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.base_name }}-${{ env.PACKAGE_VERSION }}.zip
+          if-no-files-found: error
+
+  docker:
+    name: Build multi-arch Docker image
+    runs-on: ubuntu-latest
+    needs: publish
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Compute package version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="dev-${GITHUB_RUN_NUMBER}"
+          fi
+          echo "PACKAGE_VERSION=${VERSION}" >> "$GITHUB_ENV"
+          echo "IMAGE_REPO=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute docker tags
+        id: tags
+        shell: bash
+        run: |
+          TAGS="${IMAGE_REPO}:${PACKAGE_VERSION}"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            TAGS="${TAGS},${IMAGE_REPO}:latest"
+          fi
+          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push multi-arch image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    name: Publish GitHub release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [publish, docker]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Compute package version
+        shell: bash
+        run: echo "PACKAGE_VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+
+      - name: Download packaged artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+
+      - name: Show release assets
+        shell: bash
+        run: find release-assets -maxdepth 2 -type f | sort
+
+      - name: Create release if missing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 || \
+          gh release create "${GITHUB_REF_NAME}" --generate-notes
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          gh release upload "${GITHUB_REF_NAME}" \
+            release-assets/RouterOSMCPSharp-win-x64/RouterOSMCPSharp-win-x64-${PACKAGE_VERSION}.zip \
+            release-assets/RouterOSMCPSharp-linux-x64/RouterOSMCPSharp-linux-x64-${PACKAGE_VERSION}.zip \
+            release-assets/RouterOSMCPSharp-linux-arm64/RouterOSMCPSharp-linux-arm64-${PACKAGE_VERSION}.zip \
+            release-assets/RouterOSMCPSharp-win-x64-standalone/RouterOSMCPSharp-win-x64-standalone-${PACKAGE_VERSION}.zip \
+            release-assets/RouterOSMCPSharp-linux-x64-standalone/RouterOSMCPSharp-linux-x64-standalone-${PACKAGE_VERSION}.zip \
+            release-assets/RouterOSMCPSharp-linux-arm64-standalone/RouterOSMCPSharp-linux-arm64-standalone-${PACKAGE_VERSION}.zip \
+            --clobber
