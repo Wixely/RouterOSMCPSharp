@@ -5,10 +5,10 @@ public sealed class ServerOptions
     public const string SectionName = "Server";
 
     /// <summary>Host the MCP HTTP listener binds to. Use 0.0.0.0 inside Docker.</summary>
-    public string Host { get; set; } = "0.0.0.0";
+    public string Host { get; set; } = "localhost";
 
     /// <summary>Port the MCP HTTP listener binds to.</summary>
-    public int Port { get; set; } = 5100;
+    public int Port { get; set; } = 5707;
 
     /// <summary>HTTP path the MCP endpoint is mounted at.</summary>
     public string Path { get; set; } = "/mcp";

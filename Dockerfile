@@ -1,48 +1,35 @@
 # syntax=docker/dockerfile:1.7
-# Multi-stage, multi-arch capable build. BuildKit/buildx fills TARGETARCH at build time.
-ARG DOTNET_VERSION=8.0
 
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:${DOTNET_VERSION} AS build
-ARG TARGETARCH
+FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
 WORKDIR /src
 
+COPY NuGet.config global.json Directory.Build.props Directory.Packages.props ./
 COPY RouterOSMCPSharp.csproj ./
-RUN case "$TARGETARCH" in \
-        amd64) DOTNET_ARCH=x64 ;; \
-        arm64) DOTNET_ARCH=arm64 ;; \
-        *) echo "Unsupported TARGETARCH: $TARGETARCH" >&2; exit 1 ;; \
-    esac && \
-    dotnet restore RouterOSMCPSharp.csproj -a "$DOTNET_ARCH"
+RUN dotnet restore RouterOSMCPSharp.csproj
 
 COPY . .
-RUN case "$TARGETARCH" in \
-        amd64) DOTNET_ARCH=x64 ;; \
-        arm64) DOTNET_ARCH=arm64 ;; \
-        *) echo "Unsupported TARGETARCH: $TARGETARCH" >&2; exit 1 ;; \
-    esac && \
-    dotnet publish RouterOSMCPSharp.csproj \
-        -c Release \
-        -a "$DOTNET_ARCH" \
-        --no-restore \
-        -o /app/publish \
-        /p:UseAppHost=false
+RUN dotnet publish RouterOSMCPSharp.csproj \
+    -c Release \
+    --no-restore \
+    -o /app/publish \
+    /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_VERSION} AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS runtime
 WORKDIR /app
-
-# Logs directory persists outside the image when the user mounts a volume.
-RUN mkdir -p /app/logs
-
-COPY --from=build /app/publish ./
 
 ENV DOTNET_ENVIRONMENT=Production \
     ASPNETCORE_ENVIRONMENT=Production \
     DOTNET_RUNNING_IN_CONTAINER=true \
-    DOTNET_USE_POLLING_FILE_WATCHER=true \
-    Server__Host=0.0.0.0 \
-    Server__Port=5100
+    ROUTEROSMCP_Server__Host=0.0.0.0 \
+    ROUTEROSMCP_Server__Port=5707 \
+    ROUTEROSMCP_Server__Path=/mcp \
+    ROUTEROSMCP_RouterOS__ReadOnly=true
 
-EXPOSE 5100
+RUN mkdir -p /app/logs && chown -R $APP_UID:0 /app
+COPY --from=build --chown=$APP_UID:0 /app/publish ./
+
+USER $APP_UID
+EXPOSE 5707
 VOLUME ["/app/logs"]
 
 ENTRYPOINT ["dotnet", "RouterOSMCPSharp.dll"]

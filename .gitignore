@@ -3,13 +3,14 @@ bin/
 obj/
 out/
 publish/
+artifacts/
 *.binlog
 
-# Logs (Serilog rolling files)
+# Logs
 logs/
 *.log
 
-# Local secrets / overrides (real credentials must never be committed)
+# Local secrets / overrides
 appsettings.Development.json
 appsettings.Local.json
 appsettings.*.Local.json
@@ -17,24 +18,48 @@ secrets.json
 .env
 .env.*
 
-# Private keys / certificates that may sit alongside the project
+# Live inventories and generated key material
+import/
+windows_servers.json
+linux_servers.json
+master.key
+
+# Private keys / certificates
 *.pem
 *.key
 *.pfx
 *.p12
+*.snk
 
 # .NET / NuGet
 project.lock.json
+project.fragment.lock.json
 *.nuget.props
 *.nuget.targets
 *.nupkg
 *.snupkg
 .packages/
+.nuget/
+packages/
+
+# Test and coverage output
+TestResults/
+coverage/
+coverage.*
+*.coverage
+*.coveragexml
+*.trx
+*.opencover.xml
+
+# Playwright artifacts
+playwright-report/
+playwright-traces/
 
 # Rider / ReSharper
 .idea/
 *.DotSettings.user
 _ReSharper*/
+*.[Rr]e[Ss]harper
 
 # Visual Studio
 .vs/
@@ -44,7 +69,7 @@ _ReSharper*/
 *.sln.docstates
 *.userprefs
 
-# VS Code (keep launch.json/tasks.json/extensions.json/settings.json, ignore the rest)
+# VS Code (keep shared workspace files)
 .vscode/*
 !.vscode/launch.json
 !.vscode/tasks.json
@@ -53,7 +78,12 @@ _ReSharper*/
 
 # Docker leftovers
 .docker/
+.dotnet/
 
-# OS junk
+# OS / editor noise
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+*.swp
+*~

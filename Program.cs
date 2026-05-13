@@ -75,10 +75,18 @@ public static class Program
             var server = builder.Configuration.GetSection(ServerOptions.SectionName).Get<ServerOptions>() ?? new ServerOptions();
             builder.WebHost.ConfigureKestrel(k =>
             {
-                if (IPAddress.TryParse(server.Host, out var ip))
+                if (string.Equals(server.Host, "localhost", StringComparison.OrdinalIgnoreCase))
+                {
+                    k.ListenLocalhost(server.Port);
+                }
+                else if (IPAddress.TryParse(server.Host, out var ip))
+                {
                     k.Listen(ip, server.Port);
+                }
                 else
-                    k.Listen(IPAddress.Any, server.Port);
+                {
+                    k.ListenAnyIP(server.Port);
+                }
             });
 
             var app = builder.Build();
@@ -101,6 +109,14 @@ public static class Program
                 ros.IsReadOnly, ros.Options.AllowArbitraryCommands, ros.Options.EnableRestApi,
                 isService ? "WindowsService" : "Console", contentRoot);
 
+            app.MapGet("/healthz", () => new
+            {
+                status = "ok",
+                server = "RouterOSMCPSharp",
+                path = server.Path,
+                readOnly = ros.IsReadOnly,
+                timeUtc = DateTimeOffset.UtcNow,
+            });
             app.MapMcp(server.Path);
 
             app.Run();

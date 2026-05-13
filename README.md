@@ -28,7 +28,7 @@ of RouterOS features so an MCP-aware agent can read statistics, diagnose issues,
 
 ```bash
 docker run --rm -it \
-  -p 5100:5100 \
+  -p 5707:5707 \
   -v $(pwd)/logs:/app/logs \
   -e RouterOS__Host=192.168.88.1 \
   -e RouterOS__Username=admin \
@@ -36,7 +36,7 @@ docker run --rm -it \
   ghcr.io/wixely/routerosmcpsharp:latest
 ```
 
-The MCP HTTP endpoint is then available at `http://localhost:5100/mcp`.
+The MCP HTTP endpoint is then available at `http://localhost:5707/mcp`.
 
 ### Standalone
 
@@ -64,7 +64,7 @@ executable directory.
 
 All settings live under the `RouterOS` and `Server` sections of `appsettings.json`.
 Override any field with environment variables using the standard double-underscore
-convention, e.g. `RouterOS__Password`, `Server__Port`.
+convention, e.g. `ROUTEROSMCP_RouterOS__Password`, `ROUTEROSMCP_Server__Port`.
 
 Notable knobs:
 
@@ -115,7 +115,7 @@ Add an MCP server entry pointing at the HTTP endpoint:
 {
   "mcpServers": {
     "routeros": {
-      "url": "http://localhost:5100/mcp"
+      "url": "http://localhost:5707/mcp"
     }
   }
 }
