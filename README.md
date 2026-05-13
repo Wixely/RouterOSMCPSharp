@@ -1,26 +1,19 @@
 # RouterOSMCPSharp
 
 A Model Context Protocol (MCP) server for Mikrotik **RouterOS**. Exposes a broad surface
-of RouterOS features so an MCP-aware agent can read statistics, diagnose issues, and
+of RouterOS features so an MCP client can read statistics, diagnose issues, and
 (when permitted) make changes.
-
-> Status: scaffolding. Tools cover system, interfaces, IP/IPv6, firewall, wireless, routing,
-> diagnostics, logs, management and an arbitrary-command escape hatch (off by default).
 
 ## Highlights
 
 - **Two transports to the device** — first-class RouterOS v7+ REST API (HTTPS) for
   structured JSON, with SSH as a fallback and the channel for arbitrary commands.
-  No proprietary tricks; both are official RouterOS interfaces.
 - **Read-only by default** — every write/modify/delete tool is gated behind
   `RouterOS:ReadOnly=false`.
 - **Arbitrary commands are double-gated** — `RouterOS:AllowArbitraryCommands=true` plus
   either non-read-only mode or `AllowArbitraryCommandsInReadOnly=true`, with a
   configurable substring deny-list.
-- **Runs anywhere** — Docker first (recommended), Windows Service, or plain console.
-- **Releases** — tag `vX.Y.Z` and the GitHub workflow publishes win-x64 / linux-x64 /
-  linux-arm64 zips (framework-dependent and self-contained) plus a multi-arch
-  `linux/amd64,linux/arm64` Docker image to GHCR.
+- **Runs anywhere** — Docker, Windows Service, or plain console.
 
 ## Quick start
 
@@ -30,9 +23,10 @@ of RouterOS features so an MCP-aware agent can read statistics, diagnose issues,
 docker run --rm -it \
   -p 5707:5707 \
   -v $(pwd)/logs:/app/logs \
-  -e RouterOS__Host=192.168.88.1 \
-  -e RouterOS__Username=admin \
-  -e RouterOS__Password=changeme \
+  -e ROUTEROSMCP_RouterOS__Host=192.168.88.1 \
+  -e ROUTEROSMCP_RouterOS__Username=admin \
+  -e ROUTEROSMCP_RouterOS__Password=changeme \
+  -e ROUTEROSMCP_Server__Password=change-me \
   ghcr.io/wixely/routerosmcpsharp:latest
 ```
 
@@ -44,8 +38,8 @@ The MCP HTTP endpoint is then available at `http://localhost:5707/mcp`.
 dotnet run --project RouterOSMCPSharp.csproj
 ```
 
-Edit [appsettings.json](appsettings.json) (or use environment variables) to point
-at your router. Local-only overrides go in `appsettings.Local.json`, which is
+Edit [RouterOSMCPSharp.json](RouterOSMCPSharp.json) (or use environment variables) to point
+at your router. Local-only overrides go in `RouterOSMCPSharp.Local.json`, which is
 gitignored.
 
 ### Windows Service
@@ -62,9 +56,10 @@ executable directory.
 
 ## Configuration
 
-All settings live under the `RouterOS` and `Server` sections of `appsettings.json`.
-Override any field with environment variables using the standard double-underscore
+All settings live under the `RouterOS` and `Server` sections of `RouterOSMCPSharp.json`.
+Override any field with environment variables using the `ROUTEROSMCP_` prefix and the standard double-underscore
 convention, e.g. `ROUTEROSMCP_RouterOS__Password`, `ROUTEROSMCP_Server__Port`.
+Arrays use numeric indexes, for example `ROUTEROSMCP_RouterOS__CommandDenyList__0=reset`. Booleans use `true` or `false`.
 
 `Server:Password` is blank by default. Set it to require an MCP endpoint password; clients may send `Authorization: Bearer <password>`, the Basic auth password, or `X-MCP-Password`.
 
@@ -82,8 +77,7 @@ Notable knobs:
 
 ## Tool surface (MCP)
 
-Each entry below is one MCP tool. Use the MCP client of your choice
-(Claude Desktop, MCP Inspector, etc.) to discover the full schemas.
+Each entry below is one MCP tool group. Use your MCP client to discover the full schemas.
 
 - **System** — `system_identity`, `system_resource`, `system_routerboard`, `system_health`,
   `system_clock`, `system_license`, `system_package_list`, `system_history`, `system_reboot`
@@ -109,7 +103,7 @@ Each entry below is one MCP tool. Use the MCP client of your choice
   `file_list`, `certificate_list`, `snmp_settings`
 - **Escape hatch** — `run_command` (SSH), `run_rest` (raw REST)
 
-## Connecting from Claude
+## MCP client connection
 
 Add an MCP server entry pointing at the HTTP endpoint:
 
@@ -122,23 +116,3 @@ Add an MCP server entry pointing at the HTTP endpoint:
   }
 }
 ```
-
-## Developing
-
-```bash
-dotnet build
-dotnet run
-```
-
-VS Code: open the folder, hit F5. Visual Studio: open `RouterOSMCPSharp.sln`,
-F5. Both honour `Properties/launchSettings.json`.
-
-## Releases
-
-Push a tag matching `v*` to trigger [.github/workflows/build-release-packages.yml](.github/workflows/build-release-packages.yml):
-
-1. Build & test on the configured matrix (`win-x64`, `linux-x64`, `linux-arm64`,
-   each as framework-dependent and self-contained).
-2. Build a multi-arch (`linux/amd64,linux/arm64`) Docker image and push it to
-   `ghcr.io/<repo>:<version>` and `:latest`.
-3. Create a GitHub Release with the zips attached.
