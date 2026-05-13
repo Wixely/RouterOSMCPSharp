@@ -7,6 +7,7 @@
     <Nullable>enable</Nullable>
     <RootNamespace>RouterOSMCPSharp</RootNamespace>
     <AssemblyName>RouterOSMCPSharp</AssemblyName>
+    <ApplicationIcon>wmcp.ico</ApplicationIcon>
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
@@ -25,6 +26,10 @@
     <PackageReference Include="Serilog.Enrichers.Environment" />
     <PackageReference Include="Serilog.Enrichers.Process" />
     <PackageReference Include="Serilog.Enrichers.Thread" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="wmcp.ico" LogicalName="MCPSharp.wmcp.ico" />
   </ItemGroup>
 
   <ItemGroup>

@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Hosting.WindowsServices;
 using RouterOSMCPSharp.Configuration;
+using RouterOSMCPSharp.Hosting;
 using RouterOSMCPSharp.Services;
 using Serilog;
 
@@ -19,6 +20,10 @@ public static class Program
         // so resolve config and logs relative to the executable.
         var contentRoot = AppContext.BaseDirectory;
         var isService = WindowsServiceHelpers.IsWindowsService();
+        if (!isService)
+        {
+            McpSharpIcon.ApplyConsoleWindowIcon();
+        }
 
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Information()
@@ -109,6 +114,9 @@ public static class Program
                 ros.IsReadOnly, ros.Options.AllowArbitraryCommands, ros.Options.EnableRestApi,
                 isService ? "WindowsService" : "Console", contentRoot);
 
+            app.UseMiddleware<McpPasswordMiddleware>();
+
+            app.MapFavicon();
             app.MapGet("/healthz", () => new
             {
                 status = "ok",

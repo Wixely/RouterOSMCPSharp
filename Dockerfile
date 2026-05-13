@@ -23,6 +23,7 @@ ENV DOTNET_ENVIRONMENT=Production \
     ROUTEROSMCP_Server__Host=0.0.0.0 \
     ROUTEROSMCP_Server__Port=5707 \
     ROUTEROSMCP_Server__Path=/mcp \
+    ROUTEROSMCP_Server__Password= \
     ROUTEROSMCP_RouterOS__ReadOnly=true
 
 RUN mkdir -p /app/logs && chown -R $APP_UID:0 /app

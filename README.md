@@ -66,6 +66,8 @@ All settings live under the `RouterOS` and `Server` sections of `appsettings.jso
 Override any field with environment variables using the standard double-underscore
 convention, e.g. `ROUTEROSMCP_RouterOS__Password`, `ROUTEROSMCP_Server__Port`.
 
+`Server:Password` is blank by default. Set it to require an MCP endpoint password; clients may send `Authorization: Bearer <password>`, the Basic auth password, or `X-MCP-Password`.
+
 Notable knobs:
 
 | Key | Default | Purpose |
