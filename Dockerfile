@@ -8,15 +8,21 @@ COPY RouterOSMCPSharp.csproj ./
 ARG TARGETARCH
 RUN arch="${TARGETARCH:-amd64}"; \
     if [ "$arch" = "amd64" ]; then arch="x64"; fi; \
-    dotnet restore RouterOSMCPSharp.csproj --arch "$arch"
+    rid="linux-$arch"; \
+    dotnet restore RouterOSMCPSharp.csproj \
+    -r "$rid" \
+    -p:PublishSingleFile=true \
+    -p:SelfContained=false \
+    -p:EnableCompressionInSingleFile=false
 
 COPY . .
 RUN arch="${TARGETARCH:-amd64}"; \
     if [ "$arch" = "amd64" ]; then arch="x64"; fi; \
+    rid="linux-$arch"; \
     dotnet publish RouterOSMCPSharp.csproj \
     -c Release \
     --no-restore \
-    --arch "$arch" \
+    -r "$rid" \
     --self-contained false \
     -o /app/publish \
     -p:PublishSingleFile=true \
